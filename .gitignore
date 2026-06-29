@@ -1,0 +1,10 @@
+# IDE
+.idea/
+*.iml
+
+# Build output
+cut-tool
+*.exe
+
+# Kiro local settings
+.claude/settings.local.json
