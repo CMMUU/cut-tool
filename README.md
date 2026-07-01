@@ -6,6 +6,16 @@
 
 ---
 
+## Why cut-tool
+
+Everyone uses a clipboard. Almost no one uses the same one twice.
+
+macOS hides its history behind a setting most people never find. Windows has `Win+V`. Linux has a dozen tray applets, each with its own quirks. The moment you switch machines — or switch operating systems during a workday — the muscle memory breaks. Different shortcut, different window, different behavior, and your history stays trapped on the box that captured it.
+
+cut-tool collapses that into one experience. The same tray icon, the same `Cmd/Ctrl+Shift+V`, the same search-and-repaste flow on all three platforms. Underneath, each OS is served by its native mechanism — CGO/NSPasteboard on macOS, `atotto/clipboard` on Windows and Linux — so capture is fast and correct everywhere; on top, the interaction is identical.
+
+That consistency is a design choice, not an accident. History lives in a local SQLite database driven by pure-Go `modernc.org/sqlite` (no CGO), which is exactly what lets one codebase cross-compile and behave the same across macOS, Windows, and Linux. Nothing leaves your machine — no cloud, no sync, no account.
+
 ## Features
 
 - **Clipboard history** — captures every text copy automatically
@@ -94,6 +104,16 @@ MIT
 ## 中文说明
 
 **cut-tool** 是一个跨平台桌面剪贴板增强工具，常驻系统托盘，自动记录每次复制内容，支持快速搜索和一键回填。
+
+### 为什么做这个
+
+剪贴板人人在用，但几乎没人用的是同一套。
+
+macOS 的历史藏在多数人从没打开过的设置里，Windows 靠 `Win+V`，Linux 则有一堆各具脾气的托盘小工具。一旦换台机器——或者一个工作日里在几个系统间来回切——肌肉记忆就断了：快捷键不同、窗口不同、行为不同，历史还各存各的，锁死在当初捕获它的那台设备上。
+
+cut-tool 把这些收敛成同一种体验：三端都是同一个托盘图标、同一个 `Cmd/Ctrl+Shift+V`、同一套搜索与回填流程。底层各走原生机制——macOS 用 CGO/NSPasteboard，Windows 和 Linux 用 `atotto/clipboard`——保证各平台捕获都快而准；上层交互则完全一致。
+
+这种一致性是刻意的工程取舍，而非巧合。历史记录存在本地 SQLite，由纯 Go 的 `modernc.org/sqlite` 驱动（无 CGO），正是这一点让同一份代码能交叉编译、在 macOS / Windows / Linux 上表现如一。数据不出本机——无云端、无同步、无账号。
 
 ### 功能
 
