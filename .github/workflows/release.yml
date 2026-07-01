@@ -19,6 +19,10 @@ jobs:
             name: darwin-arm64
             artifact: cut-tool-darwin-arm64
             build: go build -o cut-tool-darwin-arm64 .
+          - os: macos-latest
+            name: darwin-amd64
+            artifact: cut-tool-darwin-amd64
+            build: CGO_ENABLED=1 GOARCH=amd64 CC="clang -arch x86_64" go build -o cut-tool-darwin-amd64 .
           - os: ubuntu-latest
             name: linux-amd64
             artifact: cut-tool-linux-amd64
