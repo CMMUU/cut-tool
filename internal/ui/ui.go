@@ -4,123 +4,107 @@
 package ui
 
 import (
+	"strings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
 
 // Deps wires the UI to the rest of the app.
 type Deps struct {
-	// OnSelect is called with the full content when the user picks an entry.
-	OnSelect func(content string)
+	// OnSelect is called with the selected item when the user picks an entry.
+	OnSelect func(item Item)
 	// OnSearch returns display items matching query (called on every keystroke).
 	OnSearch func(query string) []Item
 	// OnPin toggles the pinned state of an entry. nil = feature disabled.
 	OnPin func(hash string, pinned bool)
+	// OnDelete removes a single entry by hash. nil = feature disabled.
+	OnDelete func(hash string)
+	// OnClear removes every entry. nil = feature disabled.
+	OnClear func()
+	// GetRetentionDays returns the current unpinned-entry retention period.
+	GetRetentionDays func() int
+	// SetRetentionDays persists a new retention period.
+	SetRetentionDays func(days int) error
+
+	// Hotkey configuration. All are optional; if AvailableKeys is empty the
+	// hotkey section is hidden. Modifier/key names are plain strings so the
+	// ui package need not import the hotkey package.
+	AvailableMods []string                  // selectable modifier names, in order
+	AvailableKeys []string                  // selectable key names, in order
+	GetHotkey     func() ([]string, string) // current mods + key
+	SetHotkey     func(mods []string, key string) error
+
+	// Defaults for the "Restore Defaults" action.
+	DefaultRetentionDays int
+	DefaultHotkeyMods    []string
+	DefaultHotkeyKey     string
 }
 
 // Item is one row in the history list.
 type Item struct {
+	Type      string // "text" or "image"
 	Preview   string
-	Content   string // full text handed to OnSelect
+	Content   string // full text handed to OnSelect (text entries)
+	Data      []byte // binary payload, e.g. PNG bytes (image entries)
 	Hash      string
 	Pinned    bool
 	Timestamp string
 }
 
+// Category identifiers for the sidebar.
+const (
+	catAll     = "All"
+	catText    = "Text"
+	catLinks   = "Links"
+	catImages  = "Images"
+	catStarred = "Starred"
+)
+
 // Window wraps the Fyne application and main window.
 type Window struct {
-	app  fyne.App
-	win  fyne.Window
-	deps Deps
+	app   fyne.App
+	win   fyne.Window
+	deps  Deps
+	theme *appTheme
+
+	// Three-column view state.
+	master   []Item // full set from the last load
+	category string // active sidebar category
+	query    string // active search query
+	selected *Item  // entry shown in the preview panel
+
+	listBox    *fyne.Container // scrollable column of row cards
+	previewBox *fyne.Container // right preview panel content
+	sidebarBox *fyne.Container // left category list
+	statusLbl  *widget.Label   // bottom-left status text
 }
 
 // NewWindow builds the Fyne application and window. Call Show to make it
 // visible for the first time.
 func NewWindow(deps Deps) *Window {
 	a := app.New()
-	w := a.NewWindow("cut-tool — Clipboard History")
-	w.Resize(fyne.NewSize(520, 420))
+	th := newAppTheme()
+	a.Settings().SetTheme(th) // light purple, CJK-capable
+
+	w := a.NewWindow("cut-tool")
+	w.Resize(fyne.NewSize(1040, 660))
 	w.SetCloseIntercept(w.Hide) // hide to tray instead of quitting
 
-	uw := &Window{app: a, win: w, deps: deps}
+	uw := &Window{app: a, win: w, deps: deps, theme: th, category: catAll}
 	uw.buildContent()
 	return uw
 }
 
-func (w *Window) buildContent() {
-	var items []Item
+// buildContent and the three-column layout live in layout.go.
 
-	list := widget.NewList(
-		func() int { return len(items) },
-		// Template: star button + preview label.
-		func() fyne.CanvasObject {
-			btn := widget.NewButton("☆", nil)
-			lbl := widget.NewLabel("")
-			lbl.Truncation = fyne.TextTruncateEllipsis
-			return container.NewBorder(nil, nil, btn, nil, lbl)
-		},
-		func(id widget.ListItemID, o fyne.CanvasObject) {
-			if id >= len(items) {
-				return
-			}
-			c := o.(*fyne.Container)
-			btn := c.Objects[1].(*widget.Button) // Border: leading = Objects[1]
-			lbl := c.Objects[0].(*widget.Label)  // Border: content = Objects[0]
-
-			item := items[id]
-			if item.Pinned {
-				btn.SetText("★")
-			} else {
-				btn.SetText("☆")
-			}
-			lbl.SetText(item.Preview)
-
-			// Capture hash at update time, not inside the closure, to avoid
-			// stale-id issues when the list reuses this CanvasObject.
-			hash := item.Hash
-			isPinned := item.Pinned
-			btn.OnTapped = func() {
-				if w.deps.OnPin == nil {
-					return
-				}
-				isPinned = !isPinned
-				w.deps.OnPin(hash, isPinned)
-				if isPinned {
-					btn.SetText("★")
-				} else {
-					btn.SetText("☆")
-				}
-			}
-		},
-	)
-	list.OnSelected = func(id widget.ListItemID) {
-		if id >= len(items) {
-			return
-		}
-		if w.deps.OnSelect != nil {
-			w.deps.OnSelect(items[id].Content)
-		}
-		list.UnselectAll()
-		w.win.Hide()
+// capitalize upper-cases the first letter of s (ASCII), for modifier labels.
+func capitalize(s string) string {
+	if s == "" {
+		return s
 	}
-
-	search := widget.NewEntry()
-	search.SetPlaceHolder("Search history…")
-	search.OnChanged = func(q string) {
-		if w.deps.OnSearch != nil {
-			items = w.deps.OnSearch(q)
-		}
-		list.Refresh()
-	}
-
-	// Populate on first load.
-	if w.deps.OnSearch != nil {
-		items = w.deps.OnSearch("")
-	}
-
-	w.win.SetContent(container.NewBorder(search, nil, nil, nil, list))
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 // Show makes the window visible and rebuilds the list to reflect latest history.

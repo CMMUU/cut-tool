@@ -19,10 +19,10 @@ func TestPreviewOf(t *testing.T) {
 }
 
 func TestHashOf(t *testing.T) {
-	if hashOf("") == hashOf("x") {
+	if hashOf([]byte("")) == hashOf([]byte("x")) {
 		t.Fatal("different inputs must produce different hashes")
 	}
-	if hashOf("abc") != hashOf("abc") {
+	if hashOf([]byte("abc")) != hashOf([]byte("abc")) {
 		t.Fatal("same input must produce same hash")
 	}
 }

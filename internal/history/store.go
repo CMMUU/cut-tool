@@ -29,6 +29,13 @@ type Store interface {
 	// at the top of List results regardless of created_at.
 	SetPinned(ctx context.Context, hash string, pinned bool) error
 
+	// DeleteOlderThan removes unpinned entries created before cutoff. Pinned
+	// entries are never deleted. It returns the number of rows removed.
+	DeleteOlderThan(ctx context.Context, cutoff time.Time) (int64, error)
+
+	// Delete removes the single entry with the given hash.
+	Delete(ctx context.Context, hash string) error
+
 	// Clear deletes every entry.
 	Clear(ctx context.Context) error
 
@@ -40,29 +47,36 @@ type Store interface {
 // type is structurally compatible and can be converted with FromClipboard.
 type Entry struct {
 	Type    string
-	Content string
+	Content string // text payload (type "text")
+	Data    []byte // binary payload, e.g. PNG bytes (type "image")
 	Preview string
 	Hash    string
 }
 
 // FromClipboard builds a history Entry from the raw fields of a
-// clipboard.Entry, computing the dedup hash from the content. It takes the
+// clipboard.Entry, computing the dedup hash from the payload. It takes the
 // fields rather than the clipboard.Entry type itself to avoid an import
-// cycle between the two packages.
-func FromClipboard(typ, content, preview string) Entry {
+// cycle between the two packages. For text pass data=nil; for binary types
+// (e.g. images) pass the bytes in data and leave content empty.
+func FromClipboard(typ, content string, data []byte, preview string) Entry {
+	h := hashOf([]byte(content))
+	if len(data) > 0 {
+		h = hashOf(data)
+	}
 	return Entry{
 		Type:    typ,
 		Content: content,
+		Data:    data,
 		Preview: preview,
-		Hash:    hashOf(content),
+		Hash:    h,
 	}
 }
 
 // hashOf returns a stable short hash used as the dedup key. It mirrors the
 // clipboard package's hashOf so identical content produces the same key
 // regardless of which package computed it.
-func hashOf(s string) string {
-	sum := sha256.Sum256([]byte(s))
+func hashOf(b []byte) string {
+	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:8])
 }
 
@@ -71,6 +85,7 @@ type Record struct {
 	ID        int64
 	Type      string
 	Content   string
+	Data      []byte
 	Preview   string
 	Hash      string
 	Pinned    bool

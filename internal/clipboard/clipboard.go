@@ -9,11 +9,13 @@ import "context"
 
 // Entry represents a single clipboard capture.
 //
-// Content is the raw payload; for text it is UTF-8. Image/file/HTML support
-// is reserved for future phases.
+// For TypeText the payload is Content (UTF-8) and Data is nil. For TypeImage
+// the payload is Data (PNG bytes) and Content is empty. Preview is always a
+// short human-readable label for the history list.
 type Entry struct {
 	Type    EntryType
-	Content string
+	Content string // text payload (TypeText)
+	Data    []byte // binary payload, e.g. PNG bytes (TypeImage)
 	Preview string // short text shown in the history list
 }
 
@@ -21,8 +23,9 @@ type Entry struct {
 type EntryType string
 
 const (
-	TypeText EntryType = "text"
-	// TypeImage, TypeHTML, TypeFile reserved for future phases.
+	TypeText  EntryType = "text"
+	TypeImage EntryType = "image"
+	// TypeHTML, TypeFile reserved for future phases.
 )
 
 // Clipboard is the cross-platform interface every adapter must implement.

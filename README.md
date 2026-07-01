@@ -19,6 +19,7 @@ That consistency is a design choice, not an accident. History lives in a local S
 ## Features
 
 - **Clipboard history** — captures every text copy automatically
+- **Image support** — copy an image, it's captured too; the list shows a thumbnail, click to paste it back
 - **Instant search** — filter history with a real-time search box
 - **Pin entries** — star (★) important snippets to keep them at the top
 - **Global hotkey** — `Cmd+Shift+V` (macOS) / `Ctrl+Shift+V` (Windows/Linux) opens history from anywhere
@@ -28,11 +29,11 @@ That consistency is a design choice, not an accident. History lives in a local S
 
 ## Platform Support
 
-| Platform | Clipboard | Hotkey | Tray |
-|----------|-----------|--------|------|
-| macOS 12+ | ✅ Native NSPasteboard | ✅ Cmd+Shift+V | ✅ |
-| Windows 10+ | ✅ Win32 | ✅ Ctrl+Shift+V | ✅ |
-| Linux (X11/Wayland) | ✅ xclip/xsel | ✅ Ctrl+Shift+V | ⚠️ Requires tray-capable DE |
+| Platform | Clipboard (text + image) | Hotkey | Tray |
+|----------|--------------------------|--------|------|
+| macOS 12+ | ✅ NSPasteboard (CGO) | ✅ Cmd+Shift+V | ✅ |
+| Windows 10+ | ✅ Win32 (pure Go) | ✅ Ctrl+Shift+V | ✅ |
+| Linux (X11) | ✅ X11 via purego | ✅ Ctrl+Shift+V | ⚠️ Requires tray-capable DE |
 
 ## Installation
 
@@ -118,6 +119,7 @@ cut-tool 把这些收敛成同一种体验：三端都是同一个托盘图标�
 ### 功能
 
 - **剪贴板历史** — 自动捕获每次复制的文字
+- **图片支持** — 复制图片同样记录，列表显示缩略图，点击即回填
 - **实时搜索** — 在搜索框输入关键字即时过滤
 - **置顶收藏** — 点击 ★ 固定常用内容，始终排在最前
 - **全局快捷键** — `Cmd+Shift+V`（macOS）/ `Ctrl+Shift+V`（Win/Linux）随时唤出

@@ -10,9 +10,10 @@ import (
 
 // Options configures the tray menu callbacks.
 type Options struct {
-	OnShow  func()
-	OnClear func()
-	OnExit  func()
+	OnShow     func()
+	OnSettings func()
+	OnClear    func()
+	OnExit     func()
 }
 
 // Setup attaches the system-tray menu to a Fyne app. Must be called before
@@ -22,8 +23,13 @@ func Setup(a fyne.App, opts Options) {
 	if !ok {
 		return
 	}
-	da.SetSystemTrayMenu(fyne.NewMenu("cut-tool",
+	items := []*fyne.MenuItem{
 		fyne.NewMenuItem("Show History", opts.OnShow),
+	}
+	if opts.OnSettings != nil {
+		items = append(items, fyne.NewMenuItem("Settings…", opts.OnSettings))
+	}
+	items = append(items,
 		fyne.NewMenuItem("Clear History", opts.OnClear),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Quit", func() {
@@ -32,5 +38,6 @@ func Setup(a fyne.App, opts Options) {
 			}
 			a.Quit()
 		}),
-	))
+	)
+	da.SetSystemTrayMenu(fyne.NewMenu("cut-tool", items...))
 }

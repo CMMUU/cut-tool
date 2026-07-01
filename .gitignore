@@ -8,3 +8,6 @@ cut-tool
 
 # Kiro local settings
 .claude/settings.local.json
+
+# macOS
+.DS_Store

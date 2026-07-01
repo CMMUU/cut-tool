@@ -71,6 +71,8 @@ func SQLiteOpenAt(ctx context.Context, dbPath string, cap int) (Store, error) {
 	}
 	// Migration: add pinned column to existing databases (ignored if present).
 	_, _ = db.ExecContext(ctx, `ALTER TABLE entries ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0`)
+	// Migration: add data column for binary payloads such as images.
+	_, _ = db.ExecContext(ctx, `ALTER TABLE entries ADD COLUMN data BLOB`)
 
 	return &sqliteStore{db: db, cap: cap}, nil
 }
@@ -91,10 +93,10 @@ func (s *sqliteStore) Append(ctx context.Context, e Entry) error {
 
 	// Upsert: insert or refresh timestamp on hash collision.
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO entries (type, content, preview, hash, created_at)
-		 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+		`INSERT INTO entries (type, content, data, preview, hash, created_at)
+		 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		 ON CONFLICT(hash) DO UPDATE SET created_at = CURRENT_TIMESTAMP`,
-		e.Type, e.Content, e.Preview, e.Hash,
+		e.Type, e.Content, e.Data, e.Preview, e.Hash,
 	); err != nil {
 		return fmt.Errorf("history: upsert: %w", err)
 	}
@@ -118,7 +120,7 @@ func (s *sqliteStore) List(ctx context.Context, limit int) ([]Record, error) {
 		limit = 100
 	}
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, type, content, preview, hash, pinned, created_at
+		`SELECT id, type, content, data, preview, hash, pinned, created_at
 		 FROM entries ORDER BY pinned DESC, created_at DESC, id DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, fmt.Errorf("history: list: %w", err)
@@ -133,7 +135,7 @@ func (s *sqliteStore) Search(ctx context.Context, query string, limit int) ([]Re
 	}
 	pat := "%" + escapeLike(query) + "%"
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, type, content, preview, hash, pinned, created_at
+		`SELECT id, type, content, data, preview, hash, pinned, created_at
 		 FROM entries
 		 WHERE content LIKE ? ESCAPE '\' OR preview LIKE ? ESCAPE '\'
 		 ORDER BY pinned DESC, created_at DESC, id DESC LIMIT ?`,
@@ -154,6 +156,28 @@ func (s *sqliteStore) SetPinned(ctx context.Context, hash string, pinned bool) e
 		`UPDATE entries SET pinned = ? WHERE hash = ?`, v, hash,
 	); err != nil {
 		return fmt.Errorf("history: set pinned: %w", err)
+	}
+	return nil
+}
+
+// DeleteOlderThan removes unpinned entries created before cutoff. Pinned
+// entries are kept regardless of age.
+func (s *sqliteStore) DeleteOlderThan(ctx context.Context, cutoff time.Time) (int64, error) {
+	// SQLite stores created_at as UTC text ("2006-01-02 15:04:05"); compare
+	// against the same format so the string comparison is chronological.
+	cut := cutoff.UTC().Format("2006-01-02 15:04:05")
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM entries WHERE pinned = 0 AND created_at < ?`, cut)
+	if err != nil {
+		return 0, fmt.Errorf("history: delete older than: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
+func (s *sqliteStore) Delete(ctx context.Context, hash string) error {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM entries WHERE hash = ?`, hash); err != nil {
+		return fmt.Errorf("history: delete: %w", err)
 	}
 	return nil
 }
@@ -184,12 +208,14 @@ func scanRows(rows *sql.Rows) ([]Record, error) {
 	for rows.Next() {
 		var (
 			r          Record
+			data       []byte
 			pinned     int
 			createdRaw string
 		)
-		if err := rows.Scan(&r.ID, &r.Type, &r.Content, &r.Preview, &r.Hash, &pinned, &createdRaw); err != nil {
+		if err := rows.Scan(&r.ID, &r.Type, &r.Content, &data, &r.Preview, &r.Hash, &pinned, &createdRaw); err != nil {
 			return nil, fmt.Errorf("history: scan: %w", err)
 		}
+		r.Data = data
 		r.Pinned = pinned != 0
 		r.CreatedAt = parseSQLiteTime(createdRaw)
 		out = append(out, r)
