@@ -30,7 +30,7 @@ jobs:
           - os: windows-latest
             name: windows-amd64
             artifact: cut-tool-windows-amd64.exe
-            build: go build -o cut-tool-windows-amd64.exe .
+            build: go build -ldflags "-H windowsgui" -o cut-tool-windows-amd64.exe .
 
     steps:
       - uses: actions/checkout@v4
